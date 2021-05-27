@@ -6,14 +6,23 @@ import java.util.zip.ZipOutputStream
 
 println("当前工作目录：" + runCommands("pwd"))
 
+//测试目录，如果在这里填写了测试目录，则始终使用测试目录作为输入目录
+val testInputDir = ""
+
 // <editor-fold defaultstate="collapsed" desc="获取目标压缩目录">
-var fileToZip: File? = null
-while (fileToZip == null) {
-    println("输入合法的要压缩的目录")
-    val inputDir = readLine()
-    fileToZip = checkInputDirValid(inputDir)
+
+fun getInputDir(): File {
+    var fileToZip: File? = null
+    while (fileToZip == null) {
+        println("输入合法的要压缩的目录")
+        val inputDir = readLine()
+        fileToZip = checkInputDirValid(inputDir)
+    }
+    return fileToZip
 }
-val finalFileToZip = fileToZip!!;
+
+val finalFileToZip = if (testInputDir.isEmpty()) getInputDir() else File(testInputDir)
+println("目标压缩路径为：" + finalFileToZip.absoluteFile)
 
 /**
  * 检查输入的文件路径参数是否为目录
@@ -77,14 +86,13 @@ fun checkIsFile(inputFile: String?): File? {
 }
 
 val finalOutputFile = getFinalOutputZipFile()
-println("目标压缩路径为：" + finalFileToZip.absoluteFile)
 // </editor-fold>
 
 // <editor-fold defaultstate="collapsed" desc="执行gradle clean">
 fun runGradleClean(dir: String) {
     try {
-        println(runCommands("chmod +x ./gradlew", dir))
-        println(runCommands("./gradlew clean", dir))
+        runCommands("chmod +x ./gradlew", dir)
+        runCommands("./gradlew clean", dir)
     } catch (e: Exception) {
         e.printStackTrace()
         return
@@ -119,7 +127,6 @@ fun makeZip(inputDirectory: File, outputZipFile: File, fileNamesToFilter: List<S
 makeZip(finalFileToZip, finalOutputFile, listOf("/.gradle/", "/.idea/", "/.git/"))
 // </editor-fold>
 
-
 ////////////////////////////////////////////////////
 //工具函数集合
 ////////////////////////////////////////////////////
@@ -146,10 +153,18 @@ fun runCommands(commands: String, dir: String? = null): String {
         null
     }
     val process = Runtime.getRuntime().exec(commands, null, file)
-    process.waitFor()
     var result = ""
-    process.inputStream.bufferedReader().forEachLine {
-        result += it + "\n"
+    val reader = process.inputStream.bufferedReader()
+    while (process.isAlive) {
+        var meetEmpty: Boolean = false
+        do {
+            val line: String? = reader.readLine()
+            meetEmpty = line == null
+            if (!meetEmpty) {
+                result += line
+                println(line)
+            }
+        } while (!meetEmpty)
     }
     val errorResult = process.exitValue() == 0
     if (!errorResult) {
